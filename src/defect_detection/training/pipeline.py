@@ -7,6 +7,7 @@ Train on the ``train`` split, select the checkpoint and thresholds on the
 from __future__ import annotations
 
 import platform
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -94,6 +95,16 @@ def train_normal_only(cfg: dict[str, Any], data_root: str | None = None, runs_di
     return run_dir
 
 
+def git_commit() -> str | None:
+    """Current commit hash (suffixed '-dirty' with uncommitted changes), or None outside a git checkout."""
+    try:
+        sha = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        dirty = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return f"{sha}-dirty" if dirty.strip() else sha
+
+
 def experiment_record(
     run_id: str,
     cfg: dict[str, Any],
@@ -123,6 +134,7 @@ def experiment_record(
         "device": str(device),
         "hardware": platform.platform(),
         "torch_version": torch.__version__,
+        "git_commit": git_commit(),
         "num_parameters": sum(p.numel() for p in model.parameters()),
         "training_time_s": training_time,
     }

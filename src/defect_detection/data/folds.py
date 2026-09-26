@@ -11,6 +11,12 @@ from __future__ import annotations
 import random
 
 from defect_detection.data.dataset import ANOMALOUS, Sample
+from defect_detection.utils.config import DatasetConfig
+
+
+def fold_key(cfg: DatasetConfig, sample: Sample) -> str:
+    """Machine-independent key: path relative to the category directory, e.g. 'test_public/bad/000_regular.png'."""
+    return sample.image_path.relative_to(cfg.category_dir).as_posix()
 
 
 def part_id(sample: Sample) -> str:

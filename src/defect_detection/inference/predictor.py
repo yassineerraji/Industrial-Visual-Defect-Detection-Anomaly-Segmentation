@@ -65,10 +65,10 @@ class Predictor:
     @classmethod
     def from_run(cls, run_dir: str | Path, device: str = "auto") -> "Predictor":
         run_dir = Path(run_dir)
-        if (run_dir / "folds.json").is_file():
+        if not (run_dir / "model.pt").is_file():
             raise ValueError(
-                "Cross-validation runs hold one model per fold and are for evaluation only; "
-                "train a single deployment model for inference."
+                f"{run_dir} has no deployable model.pt (cross-validation runs need "
+                "cross_validation.final_model: true)."
             )
         dev = get_device(device)
         cfg, thresholds = load_run_config(run_dir)

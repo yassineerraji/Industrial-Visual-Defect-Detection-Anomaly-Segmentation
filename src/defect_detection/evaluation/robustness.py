@@ -86,7 +86,7 @@ def evaluate_robustness(
     for name, severity, value in conditions:
         perturbation = None if value is None else make_perturbation(name, value, noise_seed)
         transform = build_eval_transform(data.preprocessing, perturbation)
-        out, _ = predict_split(run_dir, cfg, samples, transform, device, data.seed)
+        out, _ = predict_split(run_dir, cfg, data, samples, transform, device)
         row = {"perturbation": name, "severity": severity, "value": value, **_summarise(out, thresholds)}
         rows.append(row)
         logger.info("%-15s %-9s image_auroc=%.4f pixel_auroc=%.4f f1=%.4f",

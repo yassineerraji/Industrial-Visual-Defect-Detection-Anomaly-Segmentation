@@ -19,6 +19,7 @@ model:
 cross_validation:
   n_folds: 5
   split: test               # logical split holding pixel labels (test_public)
+  final_model: true         # also train one model on all labelled data (for deployment)
 
 training:
   epochs: 30                # fixed a priori; final weights are used

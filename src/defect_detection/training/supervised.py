@@ -9,6 +9,10 @@ cannot be trained and evaluated on disjoint official splits. Protocol:
   checkpoint selection);
 - thresholds are predefined (not tuned), so no held-out data influences the model;
 - evaluation pools each fold model's predictions on its own held-out fold.
+
+Optionally (``cross_validation.final_model``) one more model is trained on all
+labelled data for deployment; its expected performance is the CV estimate,
+since no labelled data remains to evaluate it independently.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ import torch
 
 from defect_detection.data.augmentations import build_train_transform
 from defect_detection.data.dataset import ANOMALOUS, NORMAL, MVTecAD2Dataset, index_split
-from defect_detection.data.folds import grouped_folds, part_id
+from defect_detection.data.folds import fold_key, grouped_folds, part_id
 from defect_detection.data.loaders import build_loader
 from defect_detection.data.preprocessing import build_eval_transform
 from defect_detection.evaluation.thresholds import Thresholds
@@ -37,6 +41,13 @@ from defect_detection.utils.logging import get_logger
 from defect_detection.utils.reproducibility import seed_everything
 
 logger = get_logger(__name__)
+
+
+def _free_accelerator_memory(device: torch.device) -> None:
+    if device.type == "mps":
+        torch.mps.empty_cache()
+    elif device.type == "cuda":
+        torch.cuda.empty_cache()
 
 
 def train_supervised_cv(cfg: dict[str, Any], data_root: str | None = None, runs_dir: Path = RUNS_DIR) -> Path:
@@ -69,12 +80,18 @@ def train_supervised_cv(cfg: dict[str, Any], data_root: str | None = None, runs_
 
     run_id, run_dir = new_run_dir(cfg["experiment_name"], runs_dir)
     save_run_config(run_dir, cfg, thresholds)
-    save_json(run_dir / "folds.json", {str(s.image_path): f for s, f in zip(labelled, folds)})
+    save_json(run_dir / "folds.json", {fold_key(data.dataset, s): f for s, f in zip(labelled, folds)})
+
+    def train_one(samples: list, seed: int) -> tuple[torch.nn.Module, list, float]:
+        seed_everything(seed)
+        loader = build_loader(MVTecAD2Dataset(samples, train_tf), train_cfg.batch_size, True, seed, train_cfg.num_workers)
+        t0 = time.perf_counter()
+        model, history = fit(build_model(cfg["model"]), loader, val_loader, get_loss(train_cfg.loss), train_cfg, device)
+        return model, history, time.perf_counter() - t0
 
     fold_summary, histories = [], {}
     start = time.perf_counter()
     for k in range(n_folds):
-        seed_everything(data.seed + k)
         held_out = [s for s, f in zip(labelled, folds) if f == k]
         train_samples = normals + [s for s, f in zip(labelled, folds) if f != k]
         counts = Counter(s.label for s in train_samples)
@@ -88,22 +105,21 @@ def train_supervised_cv(cfg: dict[str, Any], data_root: str | None = None, runs_
         }
         logger.info("fold %d/%d: %s", k + 1, n_folds, summary)
 
-        train_loader = build_loader(
-            MVTecAD2Dataset(train_samples, train_tf), train_cfg.batch_size, True, data.seed + k, train_cfg.num_workers
-        )
-        model = build_model(cfg["model"])
-        fold_start = time.perf_counter()
-        model, history = fit(model, train_loader, val_loader, get_loss(train_cfg.loss), train_cfg, device)
-        summary["training_time_s"] = time.perf_counter() - fold_start
-
+        model, history, summary["training_time_s"] = train_one(train_samples, data.seed + k)
         fold_dir = run_dir / f"fold_{k}"
         fold_dir.mkdir()
         torch.save(model.state_dict(), fold_dir / "model.pt")
         histories[f"fold_{k}"] = history
         fold_summary.append(summary)
         del model
-        if device.type == "mps":
-            torch.mps.empty_cache()
+        _free_accelerator_memory(device)
+
+    final_model = bool(cv.get("final_model", False))
+    if final_model:
+        logger.info("final model: all %d labelled + %d normal train images", len(labelled), len(normals))
+        model, history, final_time = train_one(normals + labelled, data.seed + n_folds)
+        torch.save(model.state_dict(), run_dir / "model.pt")
+        histories["final"] = history
 
     record = experiment_record(
         run_id, cfg, data, train_cfg, device, build_model(cfg["model"]), time.perf_counter() - start,
@@ -117,8 +133,11 @@ def train_supervised_cv(cfg: dict[str, Any], data_root: str | None = None, runs_
         "extra_training_data": "official normal train split",
         "checkpoint": "final epoch (no selection)",
         "thresholds": thresholds.source,
+        "final_model": "trained on all labelled data; performance estimated by CV only" if final_model else None,
     }
     record["folds"] = fold_summary
+    if final_model:
+        record["final_model_training_time_s"] = final_time
     save_json(run_dir / "history.json", histories)
     save_json(run_dir / "run_info.json", record)
     logger.info("Run saved to %s", run_dir)

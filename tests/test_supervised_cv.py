@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +9,7 @@ from PIL import Image
 from defect_detection.data.dataset import ANOMALOUS, NORMAL, Sample, index_split
 from defect_detection.data.folds import grouped_folds, part_id
 from defect_detection.evaluation.pipeline import evaluate_run
+from defect_detection.inference.predictor import Predictor
 from defect_detection.training.supervised import train_supervised_cv
 from tests.conftest import _save, make_defect_pair, make_normal_image
 
@@ -82,7 +84,7 @@ def test_unet_cv_train_then_evaluate(cv_dataset_cfg, tmp_path):
             "seed": 0,
         },
         "model": {"name": "unet", "pretrained": False, "decoder_channels": 8},
-        "cross_validation": {"n_folds": 2, "split": "test"},
+        "cross_validation": {"n_folds": 2, "split": "test", "final_model": True},
         "training": {"epochs": 1, "batch_size": 2, "loss": "bce_dice", "device": "cpu", "select_best": False},
         "scoring": {"smoothing_sigma": 0.0},
         "threshold": {"image": 0.5, "pixel": 0.5},
@@ -102,3 +104,14 @@ def test_unet_cv_train_then_evaluate(cv_dataset_cfg, tmp_path):
 
     with pytest.raises(ValueError, match="not in this run's folds"):
         evaluate_run(run_dir, split="validation", device_name="cpu", num_figures=0)
+
+    # Deployable all-data model is saved at the run root and loadable for inference.
+    assert (run_dir / "model.pt").is_file() and "final" in json.loads((run_dir / "history.json").read_text())
+    image = Image.open(next(cv_dataset_cfg.split_dir("test").glob("bad/*.png")))
+    assert Predictor.from_run(run_dir, device="cpu").predict(image).anomaly_map.shape == image.size[::-1]
+
+    # Runs are portable: evaluation works after the dataset moves (e.g. trained on Colab, evaluated locally).
+    moved_root = tmp_path / "elsewhere"
+    shutil.move(str(cv_dataset_cfg.root), moved_root)
+    moved = evaluate_run(run_dir, split="test", data_root=str(moved_root), device_name="cpu", num_figures=0)
+    assert moved["image"] == results["image"]
