@@ -1,0 +1,38 @@
+# Dataset location and on-disk layout for MVTec AD 2.
+# `root` is resolved relative to the current working directory unless absolute.
+# Override it from the command line with --data-root.
+dataset:
+  root: data/mvtec_ad_2
+  category: sheet_metal
+  layout:
+    # logical split name -> directory under <root>/<category>/
+    # Only splits with public labels are used; test_private/test_private_mixed
+    # have no public ground truth and are excluded from local evaluation.
+    splits:
+      train: train
+      validation: validation
+      test: test_public
+    good_dir: good
+    bad_dir: bad
+    mask_dir: ground_truth/bad   # relative to the split directory
+    mask_suffix: _mask           # 000_x.png -> ground_truth/bad/000_x_mask.png
+    image_extensions: [.png]
+
+preprocessing:
+  image_size: 256          # resize target (square)
+  crop_size: null          # optional centre crop after resize
+  mean: [0.485, 0.456, 0.406]   # ImageNet statistics (pretrained backbones)
+  std: [0.229, 0.224, 0.225]
+
+# Training-time augmentation. All disabled by default; enable per experiment
+# only where physically meaningful for the category.
+augmentation:
+  hflip_p: 0.0
+  vflip_p: 0.0
+  rotation_degrees: 0.0
+  brightness: 0.0
+  contrast: 0.0
+  blur_sigma: null         # [min, max] or null
+  noise_std: 0.0
+
+seed: 42

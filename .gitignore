@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# Environment / secrets
+.env
+*.env
+.azureml/
+
+# Datasets (never committed)
+data/*
+!data/.gitkeep
+*.tar
+*.tar.gz
+*.tar.xz
+*.zip
+
+# Experiment outputs
+mlruns/
+mlflow.db
+artifacts/*
+!artifacts/.gitkeep
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
