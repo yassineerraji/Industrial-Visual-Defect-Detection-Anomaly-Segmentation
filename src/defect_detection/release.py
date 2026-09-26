@@ -2,6 +2,7 @@
 
 releases/<name>/
     model.pt, config.yaml, thresholds.json    loadable by Predictor.from_run
+    folds.json, fold_<k>/model.pt             cross-validation runs only (out-of-fold scoring)
     release.json                              provenance, metrics summary, display and drift references
     run_info.json, metrics_test.json, benchmark_<device>.json, robustness_test.json (when present)
 
@@ -72,6 +73,14 @@ def export_release(
     for f in REQUIRED + OPTIONAL:
         if (run_dir / f).is_file():
             shutil.copy2(run_dir / f, bundle / f)
+    # Cross-validation runs: ship fold models so images from the labelled split can be scored out-of-fold
+    # (the final all-data model has seen every labelled image).
+    is_cv = (run_dir / "folds.json").is_file()
+    if is_cv:
+        shutil.copy2(run_dir / "folds.json", bundle / "folds.json")
+        for fold_dir in sorted(run_dir.glob("fold_*")):
+            (bundle / fold_dir.name).mkdir()
+            shutil.copy2(fold_dir / "model.pt", bundle / fold_dir.name / "model.pt")
 
     predictor = Predictor.from_run(bundle, device=device)
     data = parse_data_config(yaml.safe_load((bundle / "config.yaml").read_text())["data"], data_root=data_root)
@@ -98,6 +107,7 @@ def export_release(
                 "brightness_std": float(np.std(train_brightness)),
             },
             "metrics": _metric_summary(bundle),
+            "cross_validation": is_cv,
             "licence": LICENCE,
         },
     )

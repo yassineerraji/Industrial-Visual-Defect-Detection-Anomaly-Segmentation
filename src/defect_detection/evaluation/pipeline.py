@@ -46,6 +46,8 @@ def _predict_cross_validation(
     parts, ordered = [], []
     for k in sorted(set(fold_of.values())):
         fold_samples = [s for s, key in zip(samples, keys) if fold_of[key] == k]
+        if not fold_samples:  # a subset of the split may not touch every fold
+            continue
         model = load_model(run_dir / f"fold_{k}", cfg["model"], device)
         loader = build_loader(MVTecAD2Dataset(fold_samples, transform), cfg["training"]["batch_size"], False, data.seed)
         parts.append(compute_map_outputs(model, loader, device, scoring_cfg))
@@ -81,6 +83,11 @@ def evaluate_run(
     device = get_device(device_name)
     cfg, thresholds = load_run_config(run_dir)
     data = parse_data_config(cfg["data"], data_root=data_root)
+    if not data.dataset.root.is_dir():
+        raise FileNotFoundError(
+            f"Dataset root {data.dataset.root} (recorded when the run was trained) does not exist here; "
+            "pass --data-root to point at the local copy."
+        )
     scoring_cfg = ScoringConfig(**cfg.get("scoring", {}))
     transform = build_eval_transform(data.preprocessing)
     out, samples = predict_split(run_dir, cfg, data, index_split(data.dataset, split), transform, device)

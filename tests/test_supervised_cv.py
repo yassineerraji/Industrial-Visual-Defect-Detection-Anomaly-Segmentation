@@ -4,13 +4,17 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import torch
 from PIL import Image
 
 from defect_detection.data.dataset import ANOMALOUS, NORMAL, Sample, index_split
+from defect_detection.data.preprocessing import build_eval_transform
 from defect_detection.data.folds import grouped_folds, part_id
-from defect_detection.evaluation.pipeline import evaluate_run
+from defect_detection.evaluation.pipeline import evaluate_run, predict_split
 from defect_detection.inference.predictor import Predictor
+from defect_detection.runs import load_run_config
 from defect_detection.training.supervised import train_supervised_cv
+from defect_detection.utils.config import parse_data_config
 from tests.conftest import _save, make_defect_pair, make_normal_image
 
 CONDITIONS = ("regular", "overexposed", "shift_1")
@@ -115,3 +119,36 @@ def test_unet_cv_train_then_evaluate(cv_dataset_cfg, tmp_path):
     shutil.move(str(cv_dataset_cfg.root), moved_root)
     moved = evaluate_run(run_dir, split="test", data_root=str(moved_root), device_name="cpu", num_figures=0)
     assert moved["image"] == results["image"]
+
+
+def test_predictor_can_score_out_of_fold(cv_dataset_cfg, tmp_path):
+    """A fold model via Predictor(model_dir=...) must reproduce that image's out-of-fold evaluation score."""
+    cfg = {
+        "experiment_name": "unet_oof",
+        "data": {
+            "dataset": {
+                "root": str(cv_dataset_cfg.root),
+                "category": cv_dataset_cfg.category,
+                "layout": {"splits": dict(cv_dataset_cfg.layout.splits)},
+            },
+            "preprocessing": {"image_size": [64, 128]},
+            "seed": 0,
+        },
+        "model": {"name": "unet", "pretrained": False, "decoder_channels": 8},
+        "cross_validation": {"n_folds": 2, "split": "test", "final_model": True},
+        "training": {"epochs": 1, "batch_size": 2, "loss": "bce_dice", "device": "cpu", "select_best": False},
+        "scoring": {"smoothing_sigma": 0.0},
+        "threshold": {"image": 0.5, "pixel": 0.5},
+    }
+    run_dir = train_supervised_cv(cfg, runs_dir=tmp_path / "runs")
+    folds = json.loads((run_dir / "folds.json").read_text())
+    key, fold = next(iter(folds.items()))
+    image_path = cv_dataset_cfg.category_dir / key
+
+    oof = Predictor.from_run(run_dir, device="cpu", model_dir=run_dir / f"fold_{fold}").predict(image_path)
+    evaluate_run(run_dir, split="test", device_name="cpu", num_figures=0)
+    run_cfg, _ = load_run_config(run_dir)
+    data = parse_data_config(run_cfg["data"])
+    sample = [s for s in index_split(data.dataset, "test") if s.image_path == image_path]
+    out, _ = predict_split(run_dir, run_cfg, data, sample, build_eval_transform(data.preprocessing), torch.device("cpu"))
+    assert oof.anomaly_score == pytest.approx(float(out.scores[0]), rel=1e-5)

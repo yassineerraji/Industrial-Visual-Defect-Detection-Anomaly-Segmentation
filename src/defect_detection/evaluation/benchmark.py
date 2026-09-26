@@ -36,10 +36,10 @@ def _accelerator_memory_mb(device: torch.device) -> float | None:
 
 def benchmark_run(
     run_dir: Path, split: str = "validation", num_images: int = 10, repeats: int = 3, warmup: int = 3,
-    device: str = "auto",
+    device: str = "auto", data_root: str | None = None,
 ) -> dict[str, Any]:
     predictor = Predictor.from_run(run_dir, device=device)
-    data = parse_data_config(predictor.cfg["data"])
+    data = parse_data_config(predictor.cfg["data"], data_root=data_root)
     samples = index_split(data.dataset, split)[:num_images]
     images = [load_image(s.image_path) for s in samples]
 

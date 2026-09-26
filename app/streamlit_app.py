@@ -49,13 +49,22 @@ def load_demo() -> tuple[dict, dict, list]:
             "meta": read_json(folder / "release.json"),
             "metrics": read_json(folder / "metrics_test.json"),
             "robustness": read_json(folder / "robustness_test.json"),
+            "folds": read_json(folder / "folds.json"),
         }
     return demo, releases, read_json(BASE / "samples.json") or []
 
 
 @st.cache_resource(show_spinner="Loading model…")
-def get_predictor(folder: str) -> Predictor:
-    return Predictor.from_run(folder)
+def get_predictor(folder: str, model_dir: str | None = None) -> Predictor:
+    return Predictor.from_run(folder, model_dir=model_dir)
+
+
+def heldout_model_dir(release: dict, sample: dict | None) -> str | None:
+    """For cross-validated models, the fold model that never saw this labelled sample."""
+    folds = release["folds"]
+    if sample is None or folds is None or sample["source"] not in folds:
+        return None
+    return str(Path(release["dir"]) / f"fold_{folds[sample['source']]}")
 
 
 @st.cache_data
@@ -165,14 +174,20 @@ def inspect_tab(releases: dict, samples: list) -> None:
         meta = releases[model]["meta"]
         # Streamlit reruns the script on every interaction: predict (and log) each input/model pair once.
         key = (source, model)
+        sample = samples[source[1]] if source[0] == "sample" else None
+        model_dir = heldout_model_dir(releases[model], sample)
         if key not in st.session_state.predictions:
-            result = get_predictor(releases[model]["dir"]).predict(image)
+            result = get_predictor(releases[model]["dir"], model_dir).predict(image)
             st.session_state.predictions[key] = result
             record(label_of(model, releases), result, image, meta, name)
         result = st.session_state.predictions[key]
 
         st.markdown(f"##### {label_of(model, releases)}")
-        st.caption(SUPERVISION.get(meta["supervision"], meta["supervision"]))
+        note = SUPERVISION.get(meta["supervision"], meta["supervision"])
+        if model_dir is not None:
+            note += (f" · scored by cross-validation model {Path(model_dir).name}, which never saw this part "
+                     "(the deployed model was trained on all labelled images, including this one)")
+        st.caption(note)
         left, right = st.columns([1, 3])
         with left:
             st.markdown(verdict_badge(result, truth), unsafe_allow_html=True)

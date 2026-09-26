@@ -46,5 +46,29 @@
     "peak_rss_cpu_mb": 1702.54336,
     "benchmark_hardware": "arm",
     "training_time_s": 271.90564295900003
+  },
+  {
+    "run": "unet_sheet_metal_cv_20260926-143232",
+    "model": "unet",
+    "supervision": "pixel_labels",
+    "protocol": "pooled out-of-fold predictions (grouped CV)",
+    "category": "sheet_metal",
+    "image_size": [
+      256,
+      1024
+    ],
+    "image_auroc": 0.8523148148148149,
+    "image_ap": 0.9534507266621781,
+    "f1": 0.8786127167630058,
+    "pixel_auroc": 0.5929251234952198,
+    "dice": 0.2081969460207802,
+    "iou": 0.11619410155508908,
+    "false_positive_rate": 0.2916666666666667,
+    "latency_cpu_ms": 427.37450143346604,
+    "latency_mps_ms": 55.57890286654583,
+    "checkpoint_mb": 57.751771,
+    "peak_rss_cpu_mb": 1615.413248,
+    "benchmark_hardware": "arm",
+    "training_time_s": 7084.93622614
   }
 ]

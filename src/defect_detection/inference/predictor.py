@@ -63,16 +63,21 @@ class Predictor:
         self.scoring = ScoringConfig(**cfg.get("scoring", {}))
 
     @classmethod
-    def from_run(cls, run_dir: str | Path, device: str = "auto") -> "Predictor":
+    def from_run(cls, run_dir: str | Path, device: str = "auto", model_dir: str | Path | None = None) -> "Predictor":
+        """Load config and thresholds from ``run_dir`` and weights from ``model_dir`` (default: ``run_dir``).
+
+        ``model_dir`` selects a cross-validation fold model, e.g. to score an image out-of-fold.
+        """
         run_dir = Path(run_dir)
-        if not (run_dir / "model.pt").is_file():
+        model_dir = Path(model_dir) if model_dir is not None else run_dir
+        if not (model_dir / "model.pt").is_file():
             raise ValueError(
-                f"{run_dir} has no deployable model.pt (cross-validation runs need "
+                f"{model_dir} has no deployable model.pt (cross-validation runs need "
                 "cross_validation.final_model: true)."
             )
         dev = get_device(device)
         cfg, thresholds = load_run_config(run_dir)
-        return cls(load_model(run_dir, cfg["model"], dev), cfg, thresholds, dev, name=run_dir.name)
+        return cls(load_model(model_dir, cfg["model"], dev), cfg, thresholds, dev, name=run_dir.name)
 
     @torch.no_grad()
     def predict(self, image: Image.Image | np.ndarray | str | Path) -> PredictionResult:

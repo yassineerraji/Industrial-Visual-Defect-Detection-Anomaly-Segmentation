@@ -118,7 +118,10 @@ def main() -> None:
 
     releases = []
     for rel in cfg["releases"]:
-        bundle = export_release(resolve_run_dir(rel["run"]), out / "releases", rel["name"], args.data_root, args.device)
+        # Always use this machine's dataset copy (runs may record another machine's path, e.g. Colab).
+        bundle = export_release(
+            resolve_run_dir(rel["run"]), out / "releases", rel["name"], str(data_cfg.dataset.root), args.device
+        )
         releases.append(rel["name"])
         logger.info("Exported release %s from %s", bundle.name, rel["run"])
 

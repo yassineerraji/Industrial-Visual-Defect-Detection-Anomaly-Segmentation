@@ -8,8 +8,8 @@ releases:
     run: patchcore_sheet_metal_20260926-160757
   - name: autoencoder
     run: autoencoder_sheet_metal_20260926-160224
-  # - name: unet               # enable once the Colab run is available
-  #   run: unet_sheet_metal_cv_<timestamp>
+  - name: unet                 # final all-data model; metrics are the grouped-CV estimate
+    run: unet_sheet_metal_cv_20260926-143232
 
 # Gallery images from test_public (display only; they carry ground-truth masks).
 # Chosen by a fixed rule, not by model performance: evenly spaced defective
