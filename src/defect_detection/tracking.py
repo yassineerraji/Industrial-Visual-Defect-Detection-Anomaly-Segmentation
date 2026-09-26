@@ -90,10 +90,10 @@ def log_run(run_dir: Path, experiment: str | None = None) -> str:
                 prefix = f"robustness/{row['perturbation']}/{row['severity']}"
                 mlflow.log_metrics({f"{prefix}/{k}": v for k, v in _numeric(row).items() if k != "value"})
             mlflow.log_artifact(str(robustness_file))
-        if (run_dir / "benchmark.json").is_file():
-            bench = load_json(run_dir / "benchmark.json")
-            mlflow.log_metrics({f"benchmark/{k}": v for k, v in _numeric(bench).items()})
-            mlflow.log_artifact(str(run_dir / "benchmark.json"))
+        for bench_file in sorted(run_dir.glob("benchmark_*.json")):
+            device = bench_file.stem.removeprefix("benchmark_")
+            mlflow.log_metrics({f"benchmark/{device}/{k}": v for k, v in _numeric(load_json(bench_file)).items()})
+            mlflow.log_artifact(str(bench_file))
         if (run_dir / "figures").is_dir():
             mlflow.log_artifacts(str(run_dir / "figures"), artifact_path="figures")
         run_id = run.info.run_id

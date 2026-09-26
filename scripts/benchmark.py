@@ -1,9 +1,10 @@
 """Measure inference latency, throughput, model size and memory for a saved run.
 
 Run one benchmark per process so peak-memory figures are not shared between models.
+Results are saved per device (benchmark_cpu.json, benchmark_mps.json, ...).
 
 Example:
-    python scripts/benchmark.py --run autoencoder_sheet_metal_20260926-160000
+    python scripts/benchmark.py --run autoencoder_sheet_metal_20260926-160000 --device cpu
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ def main() -> None:
     args = parse_args()
     run_dir = resolve_run_dir(args.run)
     result = benchmark_run(run_dir, args.split, args.num_images, args.repeats, device=args.device)
-    save_json(run_dir / "benchmark.json", result)
+    save_json(run_dir / f"benchmark_{result['device'].split(':')[0]}.json", result)
     logger.info(
         "%s on %s: %.1f ms mean (p95 %.1f), %.1f img/s, %.1f MB checkpoint, %.0f MB peak RSS",
         result["model"], result["device"], result["latency_ms_mean"], result["latency_ms_p95"],

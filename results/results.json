@@ -1,0 +1,50 @@
+[
+  {
+    "run": "autoencoder_sheet_metal_20260926-160224",
+    "model": "autoencoder",
+    "supervision": "normal_only",
+    "protocol": "single model on full split",
+    "category": "sheet_metal",
+    "image_size": [
+      256,
+      1024
+    ],
+    "image_auroc": 0.4324074074074074,
+    "image_ap": 0.7478444195112908,
+    "f1": 0.36666666666666664,
+    "pixel_auroc": 0.67786782293353,
+    "dice": 0.06477588162881073,
+    "iou": 0.03347203097247999,
+    "false_positive_rate": 0.3333333333333333,
+    "latency_cpu_ms": 592.3147084001661,
+    "latency_mps_ms": 40.00825126634785,
+    "checkpoint_mb": 7.468747,
+    "peak_rss_cpu_mb": 1664.253952,
+    "benchmark_hardware": "arm",
+    "training_time_s": 2010.951405584
+  },
+  {
+    "run": "patchcore_sheet_metal_20260926-160757",
+    "model": "patchcore",
+    "supervision": "normal_only",
+    "protocol": "single model on full split",
+    "category": "sheet_metal",
+    "image_size": [
+      256,
+      1024
+    ],
+    "image_auroc": 0.7125,
+    "image_ap": 0.9170025523943426,
+    "f1": 0.5826771653543307,
+    "pixel_auroc": 0.8557061596911899,
+    "dice": 0.337900735375797,
+    "iou": 0.20329756625708853,
+    "false_positive_rate": 0.0,
+    "latency_cpu_ms": 367.2520348001247,
+    "latency_mps_ms": 54.779882000063175,
+    "checkpoint_mb": 19.795792,
+    "peak_rss_cpu_mb": 1702.54336,
+    "benchmark_hardware": "arm",
+    "training_time_s": 271.90564295900003
+  }
+]

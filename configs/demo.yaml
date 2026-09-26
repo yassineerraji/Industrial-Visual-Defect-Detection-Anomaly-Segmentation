@@ -1,0 +1,27 @@
+# Public demo (Hugging Face Space) build configuration: python scripts/build_space.py
+output_dir: build/hf_space
+data_config: dataset.yaml     # relative to this file
+
+# Release bundles exported from trained runs (order = order in the app).
+releases:
+  - name: patchcore
+    run: patchcore_sheet_metal_20260926-160757
+  - name: autoencoder
+    run: autoencoder_sheet_metal_20260926-160224
+  # - name: unet               # enable once the Colab run is available
+  #   run: unet_sheet_metal_cv_<timestamp>
+
+# Gallery images from test_public (display only; they carry ground-truth masks).
+# Chosen by a fixed rule, not by model performance: evenly spaced defective
+# part ids cycling through acquisition conditions, plus two normal parts.
+samples:
+  - test_public/bad/000_regular.png
+  - test_public/bad/003_overexposed.png
+  - test_public/bad/006_underexposed.png
+  - test_public/bad/009_shift_1.png
+  - test_public/bad/012_shift_2.png
+  - test_public/good/000_regular.png
+  - test_public/good/002_overexposed.png
+
+results_file: results/results.json
+github_url: https://github.com/yassineerraji/Industrial-Visual-Defect-Detection-Anomaly-Segmentation

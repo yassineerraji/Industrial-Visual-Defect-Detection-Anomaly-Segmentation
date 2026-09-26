@@ -30,7 +30,7 @@ def _get(path: Path, *keys: str) -> Any:
 def collect_row(run_dir: Path, split: str = "test") -> dict[str, Any]:
     info = load_json(run_dir / "run_info.json")
     metrics = run_dir / f"metrics_{split}.json"
-    bench = run_dir / "benchmark.json"
+    cpu, mps = run_dir / "benchmark_cpu.json", run_dir / "benchmark_mps.json"
     return {
         "run": run_dir.name,
         "model": info["model"],
@@ -44,10 +44,12 @@ def collect_row(run_dir: Path, split: str = "test") -> dict[str, Any]:
         "pixel_auroc": _get(metrics, "pixel", "pixel_auroc"),
         "dice": _get(metrics, "pixel", "dice"),
         "iou": _get(metrics, "pixel", "iou"),
-        "latency_ms": _get(bench, "latency_ms_mean"),
-        "checkpoint_mb": _get(bench, "checkpoint_mb"),
-        "peak_rss_mb": _get(bench, "peak_process_rss_mb"),
-        "benchmark_device": _get(bench, "device"),
+        "false_positive_rate": _get(metrics, "image", "false_positive_rate"),
+        "latency_cpu_ms": _get(cpu, "latency_ms_mean"),
+        "latency_mps_ms": _get(mps, "latency_ms_mean"),
+        "checkpoint_mb": _get(cpu, "checkpoint_mb"),
+        "peak_rss_cpu_mb": _get(cpu, "peak_process_rss_mb"),
+        "benchmark_hardware": _get(cpu, "processor"),
         "training_time_s": info.get("training_time_s"),
     }
 
@@ -60,15 +62,16 @@ def _fmt(value: Any, digits: int = 3) -> str:
 
 def render_markdown(rows: list[dict[str, Any]]) -> str:
     header = (
-        "| Model | Supervision | Evaluation | Image AUROC | Image AP | F1 | Pixel AUROC | Dice | IoU "
-        "| Latency (ms) | Checkpoint (MB) | Peak RSS (MB) |\n"
-        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
+        "| Model | Supervision | Evaluation | Image AUROC | Image AP | F1 | FPR | Pixel AUROC | Dice "
+        "| Latency CPU (ms) | Latency MPS (ms) | Checkpoint (MB) | Peak RSS CPU (MB) |\n"
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
     )
     lines = [
         f"| {MODEL_LABELS.get(r['model'], r['model'])} | {SUPERVISION_LABELS.get(r['supervision'], r['supervision'])} "
         f"| {_fmt(r['protocol'])} | {_fmt(r['image_auroc'])} | {_fmt(r['image_ap'])} | {_fmt(r['f1'])} "
-        f"| {_fmt(r['pixel_auroc'])} | {_fmt(r['dice'])} | {_fmt(r['iou'])} | {_fmt(r['latency_ms'], 1)} "
-        f"| {_fmt(r['checkpoint_mb'], 1)} | {_fmt(r['peak_rss_mb'], 0)} |"
+        f"| {_fmt(r['false_positive_rate'])} | {_fmt(r['pixel_auroc'])} | {_fmt(r['dice'])} "
+        f"| {_fmt(r['latency_cpu_ms'], 1)} | {_fmt(r['latency_mps_ms'], 1)} "
+        f"| {_fmt(r['checkpoint_mb'], 1)} | {_fmt(r['peak_rss_cpu_mb'], 0)} |"
         for r in rows
     ]
     return header + "\n".join(lines) + "\n"

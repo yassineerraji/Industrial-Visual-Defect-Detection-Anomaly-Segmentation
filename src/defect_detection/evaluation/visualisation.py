@@ -60,11 +60,16 @@ def plot_predictions(
     return fig
 
 
-def overlay_heatmap(image: np.ndarray, anomaly_map: np.ndarray, vmax: float, alpha: float = 0.5) -> np.ndarray:
-    """Blend an 'inferno' heatmap (0..vmax) over an (H, W, 3) uint8 image; returns uint8."""
-    normalised = np.clip(anomaly_map / max(vmax, 1e-12), 0.0, 1.0)
+def overlay_heatmap(
+    image: np.ndarray, anomaly_map: np.ndarray, vmin: float, vmax: float, alpha: float = 0.6
+) -> np.ndarray:
+    """Blend an 'inferno' heatmap (vmin..vmax) over an (H, W, 3) uint8 image; returns uint8.
+
+    Scores at or below ``vmin`` stay fully transparent.
+    """
+    normalised = np.clip((anomaly_map - vmin) / max(vmax - vmin, 1e-12), 0.0, 1.0)
     heat = (plt.get_cmap("inferno")(normalised)[..., :3] * 255).astype(np.float32)
-    weight = alpha * normalised[..., None]  # low scores stay transparent
+    weight = alpha * normalised[..., None]
     return (image.astype(np.float32) * (1 - weight) + heat * weight).astype(np.uint8)
 
 

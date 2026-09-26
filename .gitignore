@@ -19,6 +19,7 @@ data/*
 *.zip
 
 # Experiment outputs
+build/
 mlruns/
 mlflow.db
 artifacts/*
