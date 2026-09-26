@@ -130,7 +130,8 @@ is not suitable for this surface type.
 
 ## Demo app
 
-The Streamlit app (`app/`) runs on Streamlit Community Cloud straight from this repository.
+The Streamlit app (`app/`) runs on Streamlit Community Cloud straight from this repository
+([live demo](https://industrial-defect-inspection.streamlit.app)).
 Model weights, thresholds and gallery images are not stored in Git: they are published as
 release bundles to a Hugging Face model repo
 ([yassineerraji/industrial-defect-inspection-assets](https://huggingface.co/yassineerraji/industrial-defect-inspection-assets))

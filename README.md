@@ -5,7 +5,7 @@ scarce?** This project benchmarks three answers on real industrial images (MVTec
 metal): label-free anomaly detection, a reconstruction baseline, and fully supervised
 segmentation. It uses a leakage-free protocol, robustness tests and a deployed inspection app.
 
-**▶ Live demo:** *link added after deployment* · [Methodology & full results](docs/methodology.md) · [Models on Hugging Face](https://huggingface.co/yassineerraji/industrial-defect-inspection-assets)
+**[▶ Live demo](https://industrial-defect-inspection.streamlit.app)** · [Methodology & full results](docs/methodology.md) · [Models on Hugging Face](https://huggingface.co/yassineerraji/industrial-defect-inspection-assets)
 
 ![Each model's verdict and defect heatmap on the same test part](docs/demo_example.jpg)
 <sub>One test part, scored by each model. Green: true defect. Cyan: region the model flags. The U-Net is scored by a cross-validation model that never saw this part.</sub>
