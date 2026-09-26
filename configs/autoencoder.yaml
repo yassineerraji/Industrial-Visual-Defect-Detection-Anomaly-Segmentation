@@ -1,0 +1,36 @@
+# Convolutional autoencoder baseline (Regime A: normal images only).
+experiment_name: autoencoder_sheet_metal
+data_config: dataset.yaml   # relative to this file
+
+# Overrides merged into the shared data config.
+data:
+  preprocessing:
+    # Reconstruct in [0, 1] pixel space (sigmoid output), not ImageNet-normalised space.
+    mean: [0.0, 0.0, 0.0]
+    std: [1.0, 1.0, 1.0]
+
+model:
+  name: autoencoder
+  base_channels: 32
+  num_downsamples: 4        # 256x1024 input -> 16x64 spatial latent
+  latent_channels: 32
+
+training:
+  epochs: 100
+  batch_size: 4
+  learning_rate: 1.0e-3
+  weight_decay: 0.0
+  optimizer: adam
+  loss: mse
+  grad_accum_steps: 1
+  num_workers: 0
+  device: auto
+
+scoring:
+  smoothing_sigma: 4.0      # pixels at model resolution
+  image_score: max
+
+threshold:
+  image_method: mean_std    # mean + k*std of validation normal image scores
+  image_k: 3.0
+  pixel_quantile: 0.999     # of validation normal pixel scores

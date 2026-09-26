@@ -1,0 +1,22 @@
+# Controlled distribution shifts for robustness evaluation.
+# Severities were fixed before any robustness result was observed.
+# All perturbations act on the [0, 1] image at model resolution, before normalisation.
+split: test
+perturbations:
+  brightness:        # multiplicative intensity factor (darkening)
+    mild: 0.8
+    moderate: 0.6
+    strong: 0.4
+  contrast:          # contrast factor towards the image mean grey level
+    mild: 0.8
+    moderate: 0.6
+    strong: 0.4
+  gaussian_noise:    # standard deviation in [0, 1] intensity units, clipped to [0, 1]
+    mild: 0.02
+    moderate: 0.05
+    strong: 0.10
+  blur:              # Gaussian blur sigma in model-resolution pixels
+    mild: 0.5
+    moderate: 1.0
+    strong: 2.0
+noise_seed: 0

@@ -51,7 +51,11 @@ def main() -> None:
     chosen = random.Random(cfg.seed).sample(pool, k=min(args.num, len(pool)))
     dataset = MVTecAD2Dataset(chosen, build_eval_transform(cfg.preprocessing))
 
-    fig, axes = plt.subplots(len(dataset), 3, figsize=(9, 3 * len(dataset)), squeeze=False)
+    height, width = cfg.preprocessing.output_size
+    panel_w = 5.0
+    fig, axes = plt.subplots(
+        len(dataset), 3, figsize=(3 * panel_w, len(dataset) * (panel_w * height / width + 0.4)), squeeze=False
+    )
     for row, item in zip(axes, dataset):
         image = denormalise(item["image"], cfg.preprocessing).permute(1, 2, 0).numpy()
         mask = item["mask"][0].numpy()

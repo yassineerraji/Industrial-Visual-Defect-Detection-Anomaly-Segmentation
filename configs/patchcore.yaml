@@ -1,0 +1,27 @@
+# PatchCore (Regime A: normal images only), pretrained ImageNet backbone.
+# Uses the ImageNet normalisation from the shared data config.
+experiment_name: patchcore_sheet_metal
+data_config: dataset.yaml   # relative to this file
+
+model:
+  name: patchcore
+  backbone: resnet18        # lightweight for 8 GB; wide_resnet50_2 is the paper default
+  layers: [layer2, layer3]  # strides 8 and 16 -> 32x128 patch grid at 256x1024
+  pretrained: true
+  coreset_ratio: 0.01       # fraction of training patches kept in the memory bank
+  projection_dim: 128       # random projection used only for coreset selection
+  seed: 42
+
+training:
+  batch_size: 4
+  num_workers: 0
+  device: auto
+
+scoring:
+  smoothing_sigma: 4.0      # as in the PatchCore paper
+  image_score: max
+
+threshold:
+  image_method: mean_std
+  image_k: 3.0
+  pixel_quantile: 0.999

@@ -38,19 +38,33 @@ class DatasetConfig:
         return self.category_dir / self.layout.splits[split]
 
 
+def _as_hw(size: int | list[int] | tuple[int, ...]) -> tuple[int, int]:
+    """Normalise an int (square) or [height, width] to a (height, width) tuple."""
+    if isinstance(size, int):
+        return (size, size)
+    if len(size) != 2:
+        raise ValueError(f"Size must be an int or [height, width], got {size}")
+    return (int(size[0]), int(size[1]))
+
+
 @dataclass(frozen=True)
 class PreprocessingConfig:
-    image_size: int = 256
-    crop_size: int | None = None
+    """``image_size`` / ``crop_size`` are (height, width); an int means square."""
+
+    image_size: tuple[int, int] = (256, 256)
+    crop_size: tuple[int, int] | None = None
     mean: tuple[float, float, float] = IMAGENET_MEAN
     std: tuple[float, float, float] = IMAGENET_STD
 
     def __post_init__(self) -> None:
-        if self.crop_size is not None and self.crop_size > self.image_size:
-            raise ValueError("crop_size must not exceed image_size")
+        object.__setattr__(self, "image_size", _as_hw(self.image_size))
+        if self.crop_size is not None:
+            object.__setattr__(self, "crop_size", _as_hw(self.crop_size))
+            if any(c > s for c, s in zip(self.crop_size, self.image_size)):
+                raise ValueError("crop_size must not exceed image_size")
 
     @property
-    def output_size(self) -> int:
+    def output_size(self) -> tuple[int, int]:
         return self.crop_size or self.image_size
 
 
@@ -114,3 +128,31 @@ def parse_data_config(raw: dict[str, Any], data_root: str | Path | None = None) 
 
 def load_data_config(path: str | Path, data_root: str | Path | None = None) -> DataConfig:
     return parse_data_config(load_yaml(path), data_root=data_root)
+
+
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge ``override`` into a copy of ``base``."""
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def resolve_experiment_config(path: str | Path) -> dict[str, Any]:
+    """Load an experiment config into a single self-contained mapping.
+
+    An experiment config names a shared data config (``data_config``, relative
+    to the experiment file) and may override parts of it under ``data``. The
+    result holds the fully merged data section under ``data``, so it can be
+    saved alongside a run and re-parsed without the original files.
+    """
+    path = Path(path)
+    raw = load_yaml(path)
+    data_raw: dict[str, Any] = {}
+    if "data_config" in raw:
+        data_raw = load_yaml(path.parent / raw.pop("data_config"))
+    raw["data"] = deep_merge(data_raw, raw.get("data") or {})
+    return raw

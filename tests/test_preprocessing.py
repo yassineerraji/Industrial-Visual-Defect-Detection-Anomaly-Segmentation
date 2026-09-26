@@ -26,12 +26,15 @@ def _assert_aligned(image_t: torch.Tensor, mask_t: torch.Tensor) -> None:
     assert brightness[~mask].mean() < 0.3
 
 
-@pytest.mark.parametrize("crop,expected", [(None, 64), (48, 48)])
-def test_eval_output_shapes(crop, expected):
-    pre = PreprocessingConfig(image_size=64, crop_size=crop)
+@pytest.mark.parametrize(
+    "size,crop,expected",
+    [(64, None, (64, 64)), (64, 48, (48, 48)), ([32, 128], None, (32, 128)), ([32, 128], [32, 64], (32, 64))],
+)
+def test_eval_output_shapes(size, crop, expected):
+    pre = PreprocessingConfig(image_size=size, crop_size=crop)
     image_t, mask_t = build_eval_transform(pre)(*_pair())
-    assert image_t.shape == (3, expected, expected)
-    assert mask_t.shape == (1, expected, expected)
+    assert image_t.shape == (3, *expected)
+    assert mask_t.shape == (1, *expected)
     assert mask_t.dtype == torch.float32
 
 

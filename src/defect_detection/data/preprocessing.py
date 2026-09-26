@@ -41,7 +41,7 @@ def load_mask(path: str | Path | None, size: tuple[int, int]) -> np.ndarray:
 
 
 def geometric_resize_ops(cfg: PreprocessingConfig) -> list[v2.Transform]:
-    ops: list[v2.Transform] = [v2.Resize((cfg.image_size, cfg.image_size), antialias=True)]
+    ops: list[v2.Transform] = [v2.Resize(cfg.image_size, antialias=True)]
     if cfg.crop_size is not None:
         ops.append(v2.CenterCrop(cfg.crop_size))
     return ops
@@ -71,9 +71,14 @@ def normalise_ops(cfg: PreprocessingConfig) -> list[v2.Transform]:
     return [v2.Normalize(mean=list(cfg.mean), std=list(cfg.std))]
 
 
-def build_eval_transform(cfg: PreprocessingConfig) -> PairTransform:
-    """Deterministic transform for validation, test and inference."""
-    return PairTransform(v2.Compose(geometric_resize_ops(cfg) + to_float_ops() + normalise_ops(cfg)))
+def build_eval_transform(cfg: PreprocessingConfig, perturbation: v2.Transform | None = None) -> PairTransform:
+    """Deterministic transform for validation, test and inference.
+
+    ``perturbation`` (robustness experiments only) acts on the float [0, 1]
+    image at model resolution, before normalisation.
+    """
+    extra = [perturbation] if perturbation is not None else []
+    return PairTransform(v2.Compose(geometric_resize_ops(cfg) + to_float_ops() + extra + normalise_ops(cfg)))
 
 
 def denormalise(image: torch.Tensor, cfg: PreprocessingConfig) -> torch.Tensor:

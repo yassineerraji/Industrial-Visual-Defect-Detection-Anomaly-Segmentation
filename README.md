@@ -1,15 +1,104 @@
 # Industrial Visual Defect Detection & Anomaly Segmentation
 
-Benchmarking deep-learning approaches to industrial visual quality control on
-[MVTec AD 2](https://www.mvtec.com/company/research/datasets/mvtec-ad-2) under
-different labelling regimes (no defect labels, image-level labels, pixel-level labels).
+How well do different deep-learning approaches detect and localise defects in
+industrial quality control when defect labels are scarce, or available only at
+different granularities? This project compares three supervision regimes on
+[MVTec AD 2](https://www.mvtec.com/company/research/datasets/mvtec-ad-2)
+with one shared, leakage-free evaluation pipeline, and measures operational
+cost (latency, memory) and robustness alongside accuracy.
 
-> **Status:** Phase 1 (foundation) in progress. No results yet. The results
-> table will be generated from tracked experiments once they exist.
+> **Status:** work in progress. Every number in this README is generated from
+> tracked experiment artifacts; anything not yet measured is shown as TBD.
+
+## Industrial motivation
+
+Defects on production lines are rare, varied and expensive to annotate. A
+model that needs only images of good parts can be deployed on day one; a model
+that needs pixel-accurate defect masks may localise better but costs expert
+labelling time. The right choice depends on detection quality, localisation
+quality, robustness to imaging drift, inference cost and labelling cost together.
+
+## Dataset
+
+**MVTec AD 2, category `sheet_metal`** (licence CC BY-NC-SA 4.0, downloaded
+manually from MVTec, never committed). Measured with
+`scripts/prepare_data.py`:
+
+| Split | Normal | Anomalous | Resolution (W×H) |
+|---|---:|---:|---|
+| train | 137 | 0 | 4224×1056 |
+| validation | 19 | 0 | 4224×1056 |
+| test_public | 24 | 90 | 4224×1056 |
+
+- Pixel masks exist only for `test_public`. They are strictly binary; defects
+  cover on average 0.58% of an anomalous image.
+- `test_public` photographs **19 physical parts (15 defective, 4 good) under 6
+  acquisition conditions** each: `regular`, `overexposed`, `underexposed`,
+  `shift_1..3`. All images of a part share the same defect.
+- `test_private` / `test_private_mixed` have no public labels and are not used.
+
+## Labelling regimes and models
+
+| Regime | Labels used | Model | Idea |
+|---|---|---|---|
+| A | none (normal images only) | Convolutional autoencoder | Reconstruction error of a model trained on good parts |
+| A | none (normal images only) | PatchCore (ResNet-18) | Nearest-neighbour distance to a memory bank of pretrained patch features |
+| C | pixel masks | U-Net (ResNet-18 encoder) | Supervised per-pixel defect segmentation (BCE + Dice) |
+
+## Experimental protocol
+
+- **Preprocessing:** images resized to **256×1024**, which keeps the exact
+  1:4 aspect ratio. The resolution was fixed by rule (aspect ratio plus the
+  memory budget), not tuned on test data. Thin scratches become 1–2 px wide at
+  this resolution, a known limitation for all models.
+- **Regime A (autoencoder, PatchCore):** fit on the 137 `train` images. The
+  checkpoint (autoencoder: lowest validation reconstruction loss) and all
+  thresholds are selected on the 19 normal `validation` images:
+  - image threshold = mean + 3·std of validation image scores;
+  - pixel threshold = 99.9th percentile of validation pixel scores.
+
+  Test data is used only for the final evaluation.
+- **Regime C (U-Net):** pixel labels exist only in `test_public`, so there is
+  no official labelled training split. The U-Net uses **5-fold grouped
+  cross-validation over `test_public`**:
+  - folds are grouped by physical part, so all 6 photos of a part fall in the
+    same fold, and stratified to 3 defective parts per fold;
+  - each fold model trains on the official normal `train` images plus the
+    other 4 folds, for a fixed 30 epochs with no checkpoint selection;
+  - thresholds are predefined at 0.5 on the sigmoid output.
+
+  Each test image is scored by the model that never saw its part, and metrics
+  are computed on the pooled out-of-fold predictions. The 114 images are the
+  same as for Regime A, but the protocol differs: each U-Net fold model also
+  trains on labelled images of the other test parts, including their
+  over/underexposed and shifted versions.
+- **Metrics:**
+  - image level: AUROC, AP, precision, recall and F1 at the stored threshold;
+  - pixel level: AUROC over all test pixels, plus Dice/IoU at the stored pixel
+    threshold, computed at model resolution;
+  - per-condition image AUROC for the six acquisition conditions.
+- **Robustness:** brightness, contrast, Gaussian noise and blur at 3 fixed
+  severities (`configs/robustness.yaml`), with thresholds kept at their
+  validation values. Results are stored separately from the clean test metrics.
+- **Operational:** single-image latency through the inference API
+  (preprocessing + model + map upsampling), checkpoint size and peak memory.
+  Hardware and device are always reported.
+
+## Results
+
+Generated by `scripts/make_results_table.py` from run artifacts.
+
+<!-- RESULTS:START -->
+| Model | Supervision | Evaluation | Image AUROC | Pixel AUROC | Dice | Latency | Memory |
+|---|---|---|---:|---:|---:|---:|---:|
+| Autoencoder | Normal only | TBD | TBD | TBD | TBD | TBD | TBD |
+| PatchCore | Normal only | TBD | TBD | TBD | TBD | TBD | TBD |
+| U-Net | Pixel labels | TBD | TBD | TBD | TBD | TBD | TBD |
+<!-- RESULTS:END -->
 
 ## Local setup
 
-Requires Python 3.11+. Developed on an Apple M2 (MPS backend).
+Requires Python 3.11+. Developed on an Apple MacBook Air M2 (8 GB, PyTorch MPS).
 
 ```bash
 python3.11 -m venv .venv
@@ -18,41 +107,51 @@ pip install -e ".[dev]"
 pytest
 ```
 
-## Dataset
-
-MVTec AD 2 requires registration and licence acceptance, so it is downloaded
-manually and never committed. Place each category under `data/mvtec_ad_2/`
-(or anywhere else, then pass `--data-root`):
-
-```text
-data/mvtec_ad_2/<category>/
-├── train/good/*.png
-├── validation/good/*.png
-└── test_public/
-    ├── good/*.png
-    ├── bad/*.png
-    └── ground_truth/bad/*_mask.png
-```
-
-The layout (split directory names, mask suffix, and so on) is configurable in
-[configs/dataset.yaml](configs/dataset.yaml). `test_private` and
-`test_private_mixed` have no public ground truth and are not used for local evaluation.
-
-Validate a downloaded category and write a summary of measured dataset
-statistics to `artifacts/data/`:
+Place the dataset under `data/mvtec_ad_2/<category>/` (layout configurable in
+[configs/dataset.yaml](configs/dataset.yaml), or pass `--data-root`), then:
 
 ```bash
-python scripts/prepare_data.py --category <category>
-python scripts/visualise_samples.py --category <category> --split test
+python scripts/prepare_data.py --category sheet_metal          # validate layout, measure statistics
+python scripts/visualise_samples.py --split test               # sample/mask figure
+
+python scripts/train.py --config configs/autoencoder.yaml      # -> artifacts/runs/<run_id>/
+python scripts/train.py --config configs/patchcore.yaml
+python scripts/train.py --config configs/unet.yaml             # 5 fold models
+
+python scripts/evaluate.py --run <run_id>                      # test metrics + figures
+python scripts/robustness.py --run <run_id>                    # perturbation study
+python scripts/benchmark.py --run <run_id>                     # latency / memory
+python scripts/make_results_table.py --runs <ae> <patchcore> <unet>
+
+mlflow ui --backend-store-uri sqlite:///mlflow.db              # browse tracked runs
+streamlit run app/streamlit_app.py                             # inspection demo
 ```
+
+Every run directory is self-contained (`config.yaml`, weights, thresholds,
+history, `run_info.json`, metrics). MLflow mirrors it; set
+`MLFLOW_TRACKING_URI` to track elsewhere, for example in an Azure ML workspace.
 
 ## Project layout
 
 ```text
-configs/                 YAML configuration (data, models)
-src/defect_detection/    library code (data, models, training, evaluation, inference, utils)
+configs/                 YAML experiment configs (data, models, robustness)
+src/defect_detection/
+  data/                  indexing, preprocessing, augmentation, grouped folds, validation
+  models/                autoencoder, PatchCore, U-Net
+  training/              training loop, losses, normal-only and cross-validated pipelines
+  evaluation/            scoring, thresholds, metrics, robustness, benchmark, figures, report
+  inference/             Predictor: predict(image) -> score, threshold, map, latency
+  runs.py, tracking.py   run directories and MLflow mirroring
 scripts/                 command-line entry points
-tests/                   targeted tests (synthetic fixtures, no dataset required)
-app/                     Streamlit demo (later phase)
-artifacts/               generated outputs (git-ignored)
+app/                     Streamlit demo
+tests/                   targeted tests on synthetic fixtures (no dataset needed)
 ```
+
+## Limitations (so far)
+
+- A single category (`sheet_metal`) so far.
+- The U-Net protocol differs from Regime A (see above), so its results are not
+  a like-for-like comparison.
+- The public test set has only 19 distinct physical parts, so metrics have wide
+  uncertainty.
+- Downscaling 4.125× makes hairline scratches very thin.

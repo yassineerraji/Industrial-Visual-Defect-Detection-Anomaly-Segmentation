@@ -10,7 +10,7 @@ REPO_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "dataset.yaml"
 def test_repo_dataset_config_parses():
     cfg = load_data_config(REPO_CONFIG)
     assert cfg.dataset.layout.splits["test"] == "test_public"
-    assert cfg.preprocessing.image_size == 256
+    assert cfg.preprocessing.image_size == (256, 1024)
     assert cfg.dataset.layout.image_extensions == (".png",)
     assert cfg.augmentation.blur_sigma is None
 
@@ -30,3 +30,11 @@ def test_unknown_split_raises():
 def test_crop_larger_than_resize_rejected():
     with pytest.raises(ValueError):
         PreprocessingConfig(image_size=128, crop_size=256)
+    with pytest.raises(ValueError):
+        PreprocessingConfig(image_size=[64, 256], crop_size=[128, 128])
+
+
+def test_sizes_normalised_to_height_width():
+    assert PreprocessingConfig(image_size=64).image_size == (64, 64)
+    pre = PreprocessingConfig(image_size=[64, 256], crop_size=[64, 128])
+    assert pre.image_size == (64, 256) and pre.output_size == (64, 128)
