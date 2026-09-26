@@ -1,12 +1,16 @@
 """Industrial visual inspection demo.
 
-Runs from a built Space folder (see scripts/build_space.py):
-    python scripts/build_space.py && cd build/hf_space && streamlit run app.py
+Assets (release bundles, gallery samples, results) are read from ./assets when present
+(see scripts/build_demo.py), otherwise downloaded from a Hugging Face model repo:
+    streamlit run app/streamlit_app.py                        # from a Git checkout (Streamlit Cloud)
+    python scripts/build_demo.py && cd build/demo && streamlit run app.py
 """
 
 from __future__ import annotations
 
 import json
+import os
+import sys
 import time
 from pathlib import Path
 
@@ -15,10 +19,16 @@ import pandas as pd
 import streamlit as st
 from PIL import Image, ImageFilter
 
-from defect_detection.evaluation.visualisation import overlay_heatmap
-from defect_detection.inference.predictor import PredictionResult, Predictor
+APP_DIR = Path(__file__).resolve().parent
+try:
+    import defect_detection  # noqa: F401
+except ImportError:  # Git checkout without `pip install -e .`, e.g. Streamlit Community Cloud
+    sys.path.insert(0, str(APP_DIR.parent / "src"))
 
-BASE = Path(__file__).resolve().parent
+from defect_detection.evaluation.visualisation import overlay_heatmap  # noqa: E402
+from defect_detection.inference.predictor import PredictionResult, Predictor  # noqa: E402
+
+ASSETS_REPO = os.environ.get("DEMO_ASSETS_REPO", "yassineerraji/industrial-defect-inspection-assets")
 DISPLAY_WIDTH = 1600
 MODEL_LABELS = {"autoencoder": "Autoencoder", "patchcore": "PatchCore", "unet": "U-Net"}
 SUPERVISION = {
@@ -36,14 +46,25 @@ def read_json(path: Path) -> dict | list | None:
     return json.loads(path.read_text()) if path.is_file() else None
 
 
+@st.cache_resource(show_spinner="Downloading models and sample images (first start only)…")
+def assets_dir() -> Path:
+    local = APP_DIR / "assets"
+    if (local / "demo.json").is_file():
+        return local
+    from huggingface_hub import snapshot_download
+
+    return Path(snapshot_download(ASSETS_REPO, repo_type="model"))
+
+
 @st.cache_data
 def load_demo() -> tuple[dict, dict, list]:
-    demo = read_json(BASE / "demo.json")
+    base = assets_dir()
+    demo = read_json(base / "demo.json")
     if demo is None:
         return {}, {}, []
     releases = {}
     for name in demo["releases"]:
-        folder = BASE / "releases" / name
+        folder = base / "releases" / name
         releases[name] = {
             "dir": str(folder),
             "meta": read_json(folder / "release.json"),
@@ -51,10 +72,10 @@ def load_demo() -> tuple[dict, dict, list]:
             "robustness": read_json(folder / "robustness_test.json"),
             "folds": read_json(folder / "folds.json"),
         }
-    return demo, releases, read_json(BASE / "samples.json") or []
+    return demo, releases, read_json(base / "samples.json") or []
 
 
-@st.cache_resource(show_spinner="Loading model…")
+@st.cache_resource(show_spinner="Loading model…", max_entries=5)  # bounded: fold models are loaded on demand
 def get_predictor(folder: str, model_dir: str | None = None) -> Predictor:
     return Predictor.from_run(folder, model_dir=model_dir)
 
@@ -140,7 +161,7 @@ def inspect_tab(releases: dict, samples: list) -> None:
     cols = st.columns(4)
     for i, s in enumerate(samples):
         with cols[i % 4]:
-            st.image(thumbnail(str(BASE / s["file"])), width="stretch")
+            st.image(thumbnail(str(assets_dir() / s["file"])), width="stretch")
             kind = "Defective" if s["label"] else "Normal"
             if st.button(f"{kind} · {s['condition']}", key=f"sample_{i}", width="stretch"):
                 st.session_state.source = ("sample", i)
@@ -159,8 +180,8 @@ def inspect_tab(releases: dict, samples: list) -> None:
 
     if source[0] == "sample":
         s = samples[source[1]]
-        image, truth, name = load_rgb(str(BASE / s["file"])), s["label"], Path(s["source"]).name
-        mask = load_rgb(str(BASE / s["mask"]))[..., 0] if s["mask"] else np.zeros(image.shape[:2], np.uint8)
+        image, truth, name = load_rgb(str(assets_dir() / s["file"])), s["label"], Path(s["source"]).name
+        mask = load_rgb(str(assets_dir() / s["mask"]))[..., 0] if s["mask"] else np.zeros(image.shape[:2], np.uint8)
         st.markdown(f"**Input:** `{name}` · ground truth **{'DEFECTIVE' if truth else 'NORMAL'}** · "
                     f"{image.shape[1]}×{image.shape[0]} px")
     else:
@@ -206,7 +227,7 @@ def inspect_tab(releases: dict, samples: list) -> None:
 
 
 def results_tab(releases: dict) -> None:
-    results = read_json(BASE / "results.json")
+    results = read_json(assets_dir() / "results.json")
     st.markdown("All numbers below are generated from experiment artifacts; nothing is typed in by hand.")
     if results:
         table = pd.DataFrame([{
@@ -329,7 +350,7 @@ def main() -> None:
     st.title("Industrial Visual Defect Inspection")
     st.caption("Anomaly detection and defect localisation on MVTec AD 2 · three supervision regimes compared")
     if not releases:
-        st.error("No release bundles found. Build the app with `python scripts/build_space.py`.")
+        st.error(f"No release bundles found locally or in the Hugging Face repo {ASSETS_REPO}.")
         return
 
     with st.sidebar:

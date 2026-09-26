@@ -149,8 +149,11 @@ is not suitable for this surface type.
 
 ### Demo app
 
-The Streamlit app (`app/`, built into a Docker-based Hugging Face Space by
-`scripts/build_space.py`) inspects sample parts or uploaded images with all three models side
+The Streamlit app (`app/`) runs on Streamlit Community Cloud straight from this repository.
+Model weights, thresholds and gallery images are not stored in Git: they are published as
+release bundles to a Hugging Face model repo
+([yassineerraji/industrial-defect-inspection-assets](https://huggingface.co/yassineerraji/industrial-defect-inspection-assets))
+and downloaded at startup. The app inspects sample parts or uploaded images with all three models side
 by side. It shows PASS/FAIL against the stored thresholds, the anomaly score, a defect heatmap,
 the ground-truth outline and latency. Gallery images come from the public test set:
 - The autoencoder and PatchCore never trained on them.
@@ -189,8 +192,10 @@ python scripts/make_results_table.py --runs <ae> <patchcore> <unet>
 
 mlflow ui --backend-store-uri sqlite:///mlflow.db              # browse tracked runs
 
-python scripts/build_space.py                                  # demo -> build/hf_space (configs/demo.yaml)
-cd build/hf_space && streamlit run app.py                      # run exactly what gets deployed
+python scripts/build_demo.py                                   # release bundles + Docker variant -> build/demo
+cd build/demo && streamlit run app.py                          # run exactly what gets shipped
+hf upload <user>/<assets-repo> build/demo/assets .             # publish assets (repo set in configs/demo.yaml)
+streamlit run app/streamlit_app.py                             # app from a checkout; downloads assets from the Hub
 ```
 
 **Training on a cloud GPU.** The U-Net's 6 × 30 epochs take about 2 h and are too heavy
@@ -217,7 +222,7 @@ src/defect_detection/
   runs.py, tracking.py   run directories and MLflow mirroring
   release.py             deployable release bundles (weights, thresholds, reference statistics)
 scripts/                 command-line entry points
-app/                     Streamlit demo (packaged by scripts/build_space.py)
+app/                     Streamlit demo + its runtime requirements (assets built by scripts/build_demo.py)
 cloud/                   Colab launcher for GPU training
 tests/                   targeted tests on synthetic fixtures (no dataset needed)
 ```

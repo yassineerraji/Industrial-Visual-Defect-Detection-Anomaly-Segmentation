@@ -1,15 +1,20 @@
-# Public demo (Hugging Face Space) build configuration: python scripts/build_space.py
-output_dir: build/hf_space
+# Public demo build configuration: python scripts/build_demo.py
+# Assets are published to a Hugging Face model repo and downloaded by the app at startup.
+output_dir: build/demo
+assets_repo: yassineerraji/industrial-defect-inspection-assets
 data_config: dataset.yaml     # relative to this file
 
 # Release bundles exported from trained runs (order = order in the app).
 releases:
   - name: patchcore
     run: patchcore_sheet_metal_20260926-160757
+    supervision: normal images only
   - name: autoencoder
     run: autoencoder_sheet_metal_20260926-160224
+    supervision: normal images only
   - name: unet                 # final all-data model; metrics are the grouped-CV estimate
     run: unet_sheet_metal_cv_20260926-143232
+    supervision: pixel masks (grouped 5-fold CV + final all-data model)
 
 # Gallery images from test_public (display only; they carry ground-truth masks).
 # Chosen by a fixed rule, not by model performance: evenly spaced defective

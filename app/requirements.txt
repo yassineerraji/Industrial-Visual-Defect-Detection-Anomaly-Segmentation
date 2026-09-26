@@ -1,0 +1,11 @@
+# Runtime dependencies of the demo app (Streamlit Community Cloud reads this file;
+# scripts/build_demo.py copies it into the Docker build). CPU-only PyTorch wheels.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.0
+torchvision==0.29.0
+numpy==2.4.6
+pillow==12.3.0
+pyyaml==6.0.3
+matplotlib==3.11.2
+streamlit==1.64.0
+huggingface_hub==2.0.0
