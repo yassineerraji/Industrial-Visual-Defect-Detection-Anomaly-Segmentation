@@ -1,4 +1,4 @@
-from defect_detection.evaluation.report import README_END, README_START, render_markdown, update_readme
+from defect_detection.evaluation.report import README_END, README_START, render_compact, render_markdown, update_readme
 
 
 def _row(**overrides):
@@ -20,6 +20,12 @@ def test_missing_values_render_as_tbd_never_invented():
 def test_present_values_are_formatted():
     table = render_markdown([_row(image_auroc=0.91234, latency_cpu_ms=12.345)])
     assert "0.912" in table and "12.3" in table
+
+
+def test_compact_table_formats_and_never_invents():
+    table = render_compact([_row(image_auroc=0.7125, false_positive_rate=0.0, latency_cpu_ms=367.3), _row()])
+    assert "| Autoencoder | none | 0.71 | 0% | TBD | TBD | 0.37 s |" in table
+    assert table.count("TBD") == 2 + 5  # row 1: pixel AUROC and Dice unset; row 2: nothing measured
 
 
 def test_readme_update_only_between_markers(tmp_path):

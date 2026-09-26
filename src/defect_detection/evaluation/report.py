@@ -77,6 +77,30 @@ def render_markdown(rows: list[dict[str, Any]]) -> str:
     return header + "\n".join(lines) + "\n"
 
 
+def _pct(value: float | None) -> str:
+    return "TBD" if value is None else f"{value:.0%}"
+
+
+def _seconds(ms: float | None) -> str:
+    return "TBD" if ms is None else f"{ms / 1000:.2f} s"
+
+
+def render_compact(rows: list[dict[str, Any]]) -> str:
+    """Short table for the README: the numbers a reader needs to compare the approaches."""
+    header = (
+        "| Model | Labels needed | Image AUROC | False alarms | Pixel AUROC | Dice | CPU latency |\n"
+        "|---|---|---:|---:|---:|---:|---:|\n"
+    )
+    labels = {"normal_only": "none", "pixel_labels": "pixel masks", "image_labels": "image labels"}
+    lines = [
+        f"| {MODEL_LABELS.get(r['model'], r['model'])} | {labels.get(r['supervision'], r['supervision'])} "
+        f"| {_fmt(r['image_auroc'], 2)} | {_pct(r['false_positive_rate'])} | {_fmt(r['pixel_auroc'], 2)} "
+        f"| {_fmt(r['dice'], 2)} | {_seconds(r['latency_cpu_ms'])} |"
+        for r in rows
+    ]
+    return header + "\n".join(lines) + "\n"
+
+
 def update_readme(readme: Path, table: str) -> bool:
     """Replace the text between the RESULTS markers; returns False if the markers are absent."""
     text = readme.read_text()

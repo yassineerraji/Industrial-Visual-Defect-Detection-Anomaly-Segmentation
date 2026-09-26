@@ -1,4 +1,4 @@
-"""Build results/results.json and the README results table from selected runs.
+"""Build results/results.json, the full results table and the compact README table from selected runs.
 
 Example:
     python scripts/make_results_table.py --runs <ae_run> <patchcore_run> <unet_run>
@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from defect_detection.evaluation.report import collect_row, render_markdown, update_readme
+from defect_detection.evaluation.report import collect_row, render_compact, render_markdown, update_readme
 from defect_detection.runs import resolve_run_dir, save_json
 from defect_detection.utils.logging import configure_logging, get_logger
 
@@ -34,7 +34,7 @@ def main() -> None:
     save_json(out_dir / "results.json", rows)
     table = render_markdown(rows)
     (out_dir / "results_table.md").write_text(table)
-    if update_readme(Path(args.readme), table):
+    if update_readme(Path(args.readme), render_compact(rows)):
         logger.info("README results table updated")
     else:
         logger.warning("README has no RESULTS markers; table written to %s only", out_dir / "results_table.md")
