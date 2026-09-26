@@ -237,7 +237,7 @@ tests/                   targeted tests on synthetic fixtures (no dataset needed
 
 ## Licence and attribution
 
-Code: no licence chosen yet (all rights reserved by default). Data: MVTec AD 2, © MVTec Software GmbH, CC BY-NC-SA 4.0.
+Code: [MIT](LICENSE). Data: MVTec AD 2, © MVTec Software GmbH, CC BY-NC-SA 4.0.
 Heckler-Kram et al., *The MVTec AD 2 Dataset: Advanced Scenarios for Unsupervised Anomaly
 Detection*, arXiv:2503.21622, 2025. Trained weights are derived from this data and are shared
 for non-commercial use only.
